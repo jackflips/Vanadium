@@ -1,0 +1,52 @@
+From 384051649655cc43e43932014deb938eea35c1f5 Mon Sep 17 00:00:00 2001
+From: jack <jackrogers.org@gmail.com>
+Date: Fri, 2 Jan 2026 00:34:20 -0500
+Subject: [PATCH] Add plum splash screen background
+
+Override splash_screen_bg color to plum (#412234) for Dumb Browser branding.
+---
+ chrome/android/BUILD.gn                               |  2 ++
+ .../android/java/res_vanadium_base/values/colors.xml  | 11 +++++++++++
+ 2 files changed, 13 insertions(+)
+ create mode 100644 chrome/android/java/res_vanadium_base/values/colors.xml
+
+diff --git a/chrome/android/BUILD.gn b/chrome/android/BUILD.gn
+index d957f88bfda0b..ceceebbe3044a 100644
+--- a/chrome/android/BUILD.gn
++++ b/chrome/android/BUILD.gn
+@@ -187,6 +187,7 @@ if (_is_default_toolchain) {
+       "java/res_vanadium_base/mipmap-xxxhdpi/layered_app_icon.png",
+       "java/res_vanadium_base/mipmap-xxxhdpi/layered_app_icon_background.png",
+       "java/res_vanadium_base/values/channel_constants.xml",
++      "java/res_vanadium_base/values/colors.xml",
+     ]
+   }
+ 
+@@ -1695,6 +1696,7 @@ if (_is_default_toolchain) {
+       "java/res_vanadium_base/mipmap-xxxhdpi/layered_app_icon.png",
+       "java/res_vanadium_base/mipmap-xxxhdpi/layered_app_icon_background.png",
+       "java/res_vanadium_base/values/channel_constants.xml",
++      "java/res_vanadium_base/values/colors.xml",
+     ]
+ 
+     # Dep needed to ensure override works properly.
+diff --git a/chrome/android/java/res_vanadium_base/values/colors.xml b/chrome/android/java/res_vanadium_base/values/colors.xml
+new file mode 100644
+index 0000000000000..697a6c48d3468
+--- /dev/null
++++ b/chrome/android/java/res_vanadium_base/values/colors.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++Copyright 2026 The Dumb Browser Authors
++Use of this source code is governed by a BSD-style license that can be
++found in the LICENSE file.
++-->
++
++<resources>
++    <!-- Plum splash screen background -->
++    <color name="splash_screen_bg">#412234</color>
++</resources>
+-- 
+2.43.0
+
