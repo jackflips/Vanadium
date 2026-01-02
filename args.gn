@@ -42,7 +42,7 @@ enable_reporting = false
 
 trichrome_certdigest = "c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"
 
-chrome_public_manifest_package = "app.vanadium.browser"
+chrome_public_manifest_package = "com.dumb.browser"
 system_webview_package_name = "app.vanadium.webview"
 trichrome_library_package = "app.vanadium.trichromelibrary"
 
@@ -67,3 +67,4 @@ use_siso = true
 # Enables usage of wasm in jitless mode or interpreter mode via DrumBrake.
 v8_enable_drumbrake = true
 v8_drumbrake_bounds_checks = true
+
