@@ -1,0 +1,41 @@
+From eb25a94997585ff096d1d35186efc43450bfe1de Mon Sep 17 00:00:00 2001
+From: jack <jackrogers.org@gmail.com>
+Date: Thu, 1 Jan 2026 22:34:09 -0500
+Subject: [PATCH] Fix adaptive icon to show crescent on plum background
+
+- ic_launcher.xml: Use plum background instead of white
+- ic_launcher_round.xml: Use layered_app_icon (crescent PNG) instead of
+  layered_app_icon_foreground (transparent XML shape)
+---
+ chrome/android/java/res_base/drawable/ic_launcher.xml       | 2 +-
+ chrome/android/java/res_base/drawable/ic_launcher_round.xml | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/chrome/android/java/res_base/drawable/ic_launcher.xml b/chrome/android/java/res_base/drawable/ic_launcher.xml
+index e5a868e458b5e..daa6055b6aa27 100644
+--- a/chrome/android/java/res_base/drawable/ic_launcher.xml
++++ b/chrome/android/java/res_base/drawable/ic_launcher.xml
+@@ -6,7 +6,7 @@ found in the LICENSE file.
+ -->
+ 
+ <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android" >
+-    <background android:drawable="@android:color/white"/>
++    <background android:drawable="@mipmap/layered_app_icon_background"/>
+     <foreground android:drawable="@mipmap/layered_app_icon"/>
+     <monochrome android:drawable="@drawable/themed_app_icon"/>
+ </adaptive-icon>
+diff --git a/chrome/android/java/res_base/drawable/ic_launcher_round.xml b/chrome/android/java/res_base/drawable/ic_launcher_round.xml
+index 2159da0bd9866..daa6055b6aa27 100644
+--- a/chrome/android/java/res_base/drawable/ic_launcher_round.xml
++++ b/chrome/android/java/res_base/drawable/ic_launcher_round.xml
+@@ -7,6 +7,6 @@ found in the LICENSE file.
+ 
+ <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android" >
+     <background android:drawable="@mipmap/layered_app_icon_background"/>
+-    <foreground android:drawable="@mipmap/layered_app_icon_foreground"/>
++    <foreground android:drawable="@mipmap/layered_app_icon"/>
+     <monochrome android:drawable="@drawable/themed_app_icon"/>
+ </adaptive-icon>
+-- 
+2.43.0
+
