@@ -4,3 +4,7 @@
 /.gclient_previous_sync_commits
 /src
 /vanadium.keystore
+
+# Cloned blocklist repos (use update_blocklists.sh to sync)
+blocklists/StevenBlack-hosts/
+blocklists/arceo/

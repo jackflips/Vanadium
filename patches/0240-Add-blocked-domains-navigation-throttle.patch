@@ -1,0 +1,461 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jack Styles <jackrogers.org@gmail.com>
+Date: Sun, 15 Mar 2026 03:30:00 +0100
+Subject: [PATCH] Add blocked domains navigation throttle
+
+Integrate StevenBlack/hosts and polarhive/arceo blocklists into Dumb Browser.
+Blocks navigation to ~170K domains covering fakenews, gambling, porn, social
+media, news, entertainment, and consumerism sites.
+
+The domain list is generated at build time from blocked_domains.txt via a GN
+action. A NavigationThrottle intercepts main-frame navigations to blocked
+domains and shows a themed error page with plum (#412234) branding.
+---
+ chrome/browser/blocked_domains/BUILD.gn       |  15 ++
+ .../blocked_domains_navigation_throttle.cc    | 228 ++++++++++++++++++
+ .../blocked_domains_navigation_throttle.h     |  40 +++
+ .../chrome_content_browser_client.cc          |   8 +
+ chrome/browser/static_library_browser_deps.gni|   1 +
+ vanadium/blocked_domains/BUILD.gn             |  20 ++
+ vanadium/blocked_domains/blocked_domains_data.h|  18 ++
+ .../generate_blocked_domains_data.py          |  40 +++
+ 8 files changed, 370 insertions(+)
+ create mode 100644 chrome/browser/blocked_domains/BUILD.gn
+ create mode 100644 chrome/browser/blocked_domains/blocked_domains_navigation_throttle.cc
+ create mode 100644 chrome/browser/blocked_domains/blocked_domains_navigation_throttle.h
+ create mode 100644 vanadium/blocked_domains/BUILD.gn
+ create mode 100644 vanadium/blocked_domains/blocked_domains_data.h
+ create mode 100644 vanadium/blocked_domains/generate_blocked_domains_data.py
+
+diff --git a/chrome/browser/blocked_domains/BUILD.gn b/chrome/browser/blocked_domains/BUILD.gn
+new file mode 100644
+index 0000000000000..e0967d7000000
+--- /dev/null
++++ b/chrome/browser/blocked_domains/BUILD.gn
+@@ -0,0 +1,15 @@
++# Copyright 2026 Dumb Browser
++
++source_set("blocked_domains") {
++  sources = [
++    "blocked_domains_navigation_throttle.cc",
++    "blocked_domains_navigation_throttle.h",
++  ]
++  deps = [
++    "//base",
++    "//content/public/browser",
++    "//net",
++    "//url",
++    "//vanadium/blocked_domains:blocked_domains_data",
++  ]
++}
+diff --git a/chrome/browser/blocked_domains/blocked_domains_navigation_throttle.h b/chrome/browser/blocked_domains/blocked_domains_navigation_throttle.h
+new file mode 100644
+index 0000000000000..b8fc5ff000000
+--- /dev/null
++++ b/chrome/browser/blocked_domains/blocked_domains_navigation_throttle.h
+@@ -0,0 +1,40 @@
++// Copyright 2026 Dumb Browser
++// Use of this source code is governed by a GPL-2.0-style license.
++
++#ifndef CHROME_BROWSER_BLOCKED_DOMAINS_BLOCKED_DOMAINS_NAVIGATION_THROTTLE_H_
++#define CHROME_BROWSER_BLOCKED_DOMAINS_BLOCKED_DOMAINS_NAVIGATION_THROTTLE_H_
++
++#include <memory>
++#include <string>
++
++#include "base/containers/flat_set.h"
++#include "content/public/browser/navigation_throttle.h"
++
++namespace content {
++class NavigationHandle;
++}
++
++class BlockedDomainsNavigationThrottle : public content::NavigationThrottle {
++ public:
++  static std::unique_ptr<BlockedDomainsNavigationThrottle>
++  MaybeCreateThrottleFor(content::NavigationHandle* navigation_handle);
++
++  ~BlockedDomainsNavigationThrottle() override;
++
++  // NavigationThrottle:
++  ThrottleCheckResult WillStartRequest() override;
++  ThrottleCheckResult WillRedirectRequest() override;
++  const char* GetNameForLogging() override;
++
++ private:
++  explicit BlockedDomainsNavigationThrottle(
++      content::NavigationHandle* navigation_handle);
++
++  ThrottleCheckResult CheckBlockedDomain();
++
++  static const base::flat_set<std::string>& GetBlockedDomains();
++  static bool IsBlockedDomain(const std::string& host);
++  static std::string GetBlockedPageHTML(const std::string& host);
++};
++
++#endif  // CHROME_BROWSER_BLOCKED_DOMAINS_BLOCKED_DOMAINS_NAVIGATION_THROTTLE_H_
+diff --git a/chrome/browser/blocked_domains/blocked_domains_navigation_throttle.cc b/chrome/browser/blocked_domains/blocked_domains_navigation_throttle.cc
+new file mode 100644
+index 0000000000000..788d446000000
+--- /dev/null
++++ b/chrome/browser/blocked_domains/blocked_domains_navigation_throttle.cc
+@@ -0,0 +1,228 @@
++// Copyright 2026 Dumb Browser
++// Use of this source code is governed by a GPL-2.0-style license.
++
++#include "chrome/browser/blocked_domains/blocked_domains_navigation_throttle.h"
++
++#include <algorithm>
++#include <string_view>
++
++#include "base/containers/flat_set.h"
++#include "base/no_destructor.h"
++#include "base/strings/string_split.h"
++#include "base/strings/string_util.h"
++#include "base/strings/stringprintf.h"
++#include "content/public/browser/navigation_handle.h"
++#include "net/base/net_errors.h"
++#include "url/gurl.h"
++#include "vanadium/blocked_domains/blocked_domains_data.h"
++
++namespace {
++
++// Beautiful blocked page with plum theme.
++constexpr char kBlockedPageTemplate[] = R"(
++<!DOCTYPE html>
++<html>
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>Site Blocked</title>
++<style>
++* { margin: 0; padding: 0; box-sizing: border-box; }
++body {
++  font-family: -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
++  background: #1a1018;
++  color: #fff;
++  min-height: 100vh;
++  display: flex;
++  flex-direction: column;
++}
++.top-bar {
++  background: #412234;
++  height: 56px;
++  width: 100%%;
++  flex-shrink: 0;
++}
++.hero {
++  width: 100%%;
++  height: 240px;
++  overflow: hidden;
++  position: relative;
++}
++.hero img {
++  width: 100%%;
++  height: 100%%;
++  object-fit: cover;
++}
++.hero-overlay {
++  position: absolute;
++  bottom: 0;
++  left: 0;
++  right: 0;
++  height: 80px;
++  background: linear-gradient(transparent, #1a1018);
++}
++.content {
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  padding: 32px 24px;
++  text-align: center;
++}
++.icon {
++  width: 64px;
++  height: 64px;
++  border-radius: 50%%;
++  background: #412234;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  margin-bottom: 24px;
++  box-shadow: 0 4px 24px rgba(65, 34, 52, 0.5);
++}
++.icon svg {
++  width: 32px;
++  height: 32px;
++  fill: #DABFFF;
++}
++h1 {
++  font-size: 22px;
++  font-weight: 400;
++  margin-bottom: 12px;
++  color: #DABFFF;
++  letter-spacing: -0.3px;
++}
++p {
++  font-size: 15px;
++  line-height: 1.6;
++  color: #9a8a94;
++  max-width: 340px;
++}
++.domain {
++  color: #907AD6;
++  font-weight: 500;
++  word-break: break-all;
++}
++.footer {
++  padding: 24px;
++  text-align: center;
++}
++.back-btn {
++  background: #412234;
++  color: #DABFFF;
++  border: none;
++  border-radius: 24px;
++  padding: 12px 32px;
++  font-size: 15px;
++  cursor: pointer;
++  transition: background 0.2s;
++}
++.back-btn:hover {
++  background: #5a3049;
++}
++</style>
++</head>
++<body>
++<div class="top-bar"></div>
++<div class="content">
++  <div class="icon">
++    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-2zm0-4V7h2v6h-2z"/></svg>
++  </div>
++  <h1>This site isn't available</h1>
++  <p><span class="domain">%s</span> has been blocked to help you stay focused and present.</p>
++</div>
++<div class="footer">
++  <button class="back-btn" onclick="history.back()">Go back</button>
++</div>
++</body>
++</html>
++)";
++
++}  // namespace
++
++// static
++std::unique_ptr<BlockedDomainsNavigationThrottle>
++BlockedDomainsNavigationThrottle::MaybeCreateThrottleFor(
++    content::NavigationHandle* navigation_handle) {
++  if (!navigation_handle->IsInMainFrame())
++    return nullptr;
++  return std::make_unique<BlockedDomainsNavigationThrottle>(navigation_handle);
++}
++
++BlockedDomainsNavigationThrottle::BlockedDomainsNavigationThrottle(
++    content::NavigationHandle* navigation_handle)
++    : NavigationThrottle(navigation_handle) {}
++
++BlockedDomainsNavigationThrottle::~BlockedDomainsNavigationThrottle() = default;
++
++content::NavigationThrottle::ThrottleCheckResult
++BlockedDomainsNavigationThrottle::WillStartRequest() {
++  return CheckBlockedDomain();
++}
++
++content::NavigationThrottle::ThrottleCheckResult
++BlockedDomainsNavigationThrottle::WillRedirectRequest() {
++  return CheckBlockedDomain();
++}
++
++const char* BlockedDomainsNavigationThrottle::GetNameForLogging() {
++  return "BlockedDomainsNavigationThrottle";
++}
++
++content::NavigationThrottle::ThrottleCheckResult
++BlockedDomainsNavigationThrottle::CheckBlockedDomain() {
++  const GURL& url = navigation_handle()->GetURL();
++  if (!url.SchemeIsHTTPOrHTTPS())
++    return PROCEED;
++
++  const std::string host = url.host();
++  if (IsBlockedDomain(host)) {
++    return ThrottleCheckResult(CANCEL, net::ERR_BLOCKED_BY_ADMINISTRATOR,
++                               GetBlockedPageHTML(host));
++  }
++  return PROCEED;
++}
++
++// static
++const base::flat_set<std::string>&
++BlockedDomainsNavigationThrottle::GetBlockedDomains() {
++  static base::NoDestructor<base::flat_set<std::string>> domains([] {
++    std::string_view data(blocked_domains::kBlockedDomainsData,
++                          blocked_domains::kBlockedDomainsDataSize);
++    std::vector<std::string> domain_list;
++    for (const auto& piece :
++         base::SplitStringPiece(data, "\n", base::TRIM_WHITESPACE,
++                                base::SPLIT_WANT_NONEMPTY)) {
++      domain_list.emplace_back(piece);
++    }
++    return base::flat_set<std::string>(std::move(domain_list));
++  }());
++  return *domains;
++}
++
++// static
++bool BlockedDomainsNavigationThrottle::IsBlockedDomain(
++    const std::string& host) {
++  const auto& domains = GetBlockedDomains();
++  // Check exact match first.
++  if (domains.contains(host))
++    return true;
++  // Check parent domains (e.g., if "facebook.com" is blocked,
++  // "m.facebook.com" should also be blocked).
++  std::string_view remaining(host);
++  while (true) {
++    auto dot = remaining.find('.');
++    if (dot == std::string_view::npos)
++      break;
++    remaining = remaining.substr(dot + 1);
++    if (domains.contains(std::string(remaining)))
++      return true;
++  }
++  return false;
++}
++
++// static
++std::string BlockedDomainsNavigationThrottle::GetBlockedPageHTML(
++    const std::string& host) {
++  return base::StringPrintf(kBlockedPageTemplate, host.c_str());
++}
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -268,6 +268,8 @@
+ #include "chrome/browser/accessibility/accessibility_prefs/android/accessibility_prefs_controller.h"
+ #endif
+
++#include "chrome/browser/blocked_domains/blocked_domains_navigation_throttle.h"
++
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+ #include "chrome/browser/enterprise/profile_management/profile_management_navigation_throttle.h"
+ #include "chrome/browser/ui/browser.h"
+@@ -6400,6 +6402,12 @@
+     content::NavigationHandle* handle) {
+   std::vector<std::unique_ptr<content::NavigationThrottle>> throttles;
+
++  // Block domains from the Dumb Browser blocklist.
++  if (auto blocked_throttle =
++          BlockedDomainsNavigationThrottle::MaybeCreateThrottleFor(handle)) {
++    throttles.push_back(std::move(blocked_throttle));
++  }
++
+   std::unique_ptr<content::NavigationThrottle>
+       browser_command_from_intent_throttle =
+diff --git a/chrome/browser/static_library_browser_deps.gni b/chrome/browser/static_library_browser_deps.gni
+--- a/chrome/browser/static_library_browser_deps.gni
++++ b/chrome/browser/static_library_browser_deps.gni
+@@ -5,6 +5,7 @@
+ assert(is_android)
+
+ static_library_browser_deps = [
++  "//chrome/browser/blocked_domains:blocked_domains",
+   "//chrome/browser/subresource_filter/android:android",
+   "//components/subresource_filter/android_config:android",
+ ]
+diff --git a/vanadium/blocked_domains/BUILD.gn b/vanadium/blocked_domains/BUILD.gn
+new file mode 100644
+index 0000000000000..ab15094000000
+--- /dev/null
++++ b/vanadium/blocked_domains/BUILD.gn
+@@ -0,0 +1,20 @@
++# Copyright 2026 Dumb Browser
++
++import("//build/config/android/rules.gni")
++
++action("generate_blocked_domains_data") {
++  script = "generate_blocked_domains_data.py"
++  inputs = [ "blocked_domains.txt" ]
++  outputs = [ "$target_gen_dir/blocked_domains_data.cc" ]
++  args = [
++    rebase_path("blocked_domains.txt", root_build_dir),
++    rebase_path("$target_gen_dir/blocked_domains_data.cc", root_build_dir),
++  ]
++}
++
++source_set("blocked_domains_data") {
++  sources = [ "blocked_domains_data.h" ]
++  # The generated .cc file is listed as a source from the gen dir.
++  sources += [ "$target_gen_dir/blocked_domains_data.cc" ]
++  deps = [ ":generate_blocked_domains_data" ]
++}
+diff --git a/vanadium/blocked_domains/blocked_domains_data.h b/vanadium/blocked_domains/blocked_domains_data.h
+new file mode 100644
+index 0000000000000..87f3560000000
+--- /dev/null
++++ b/vanadium/blocked_domains/blocked_domains_data.h
+@@ -0,0 +1,18 @@
++// Copyright 2026 Dumb Browser
++// Use of this source code is governed by a GPL-2.0-style license.
++
++#ifndef VANADIUM_BLOCKED_DOMAINS_BLOCKED_DOMAINS_DATA_H_
++#define VANADIUM_BLOCKED_DOMAINS_BLOCKED_DOMAINS_DATA_H_
++
++#include <stddef.h>
++
++namespace blocked_domains {
++
++// Newline-separated sorted list of blocked domains, compiled from
++// StevenBlack/hosts and polarhive/arceo blocklists.
++extern const char kBlockedDomainsData[];
++extern const size_t kBlockedDomainsDataSize;
++
++}  // namespace blocked_domains
++
++#endif  // VANADIUM_BLOCKED_DOMAINS_BLOCKED_DOMAINS_DATA_H_
+diff --git a/vanadium/blocked_domains/generate_blocked_domains_data.py b/vanadium/blocked_domains/generate_blocked_domains_data.py
+new file mode 100644
+index 0000000000000..2ff3f55000000
+--- /dev/null
++++ b/vanadium/blocked_domains/generate_blocked_domains_data.py
+@@ -0,0 +1,40 @@
++#!/usr/bin/env python3
++"""
++Generate blocked_domains_data.cc from blocked_domains.txt.
++
++This is invoked by GN as a build action. It reads a newline-separated list
++of domains and generates a C++ source file with the data as a single
++string constant suitable for runtime parsing.
++"""
++
++import sys
++
++
++def main():
++    input_path = sys.argv[1]
++    output_path = sys.argv[2]
++
++    with open(input_path, 'r') as f:
++        domains = sorted(set(
++            line.strip().lower()
++            for line in f
++            if line.strip() and not line.startswith('#')
++        ))
++
++    with open(output_path, 'w') as out:
++        out.write('// Generated file - do not edit.\n')
++        out.write('// Built from blocked_domains.txt\n\n')
++        out.write('#include "vanadium/blocked_domains/blocked_domains_data.h"\n\n')
++        out.write('namespace blocked_domains {\n\n')
++        out.write('const char kBlockedDomainsData[] =\n')
++        for domain in domains:
++            # Escape any special chars (shouldn't be any in domain names)
++            escaped = domain.replace('\\', '\\\\').replace('"', '\\"')
++            out.write(f'    "{escaped}\\n"\n')
++        out.write('    ;\n\n')
++        out.write(f'const size_t kBlockedDomainsDataSize = sizeof(kBlockedDomainsData) - 1;\n\n')
++        out.write('}  // namespace blocked_domains\n')
++
++
++if __name__ == '__main__':
++    main()
