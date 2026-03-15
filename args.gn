@@ -41,14 +41,14 @@ enable_cardboard = false
 enable_remoting = false
 enable_reporting = false
 
-trichrome_certdigest = "c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"
+trichrome_certdigest = "d89d0e3a7ba028a98f1aa301317df692ea81bc93c0b2e6b8373e6bc302d97d74"
 
 chrome_public_manifest_package = "app.dumbbrowser.browser"
 system_webview_package_name = "app.dumbbrowser.webview"
 trichrome_library_package = "app.dumbbrowser.trichromelibrary"
 
 config_apk_package = "app.dumbbrowser.config"
-config_apk_certdigest = "c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"
+config_apk_certdigest = "d89d0e3a7ba028a98f1aa301317df692ea81bc93c0b2e6b8373e6bc302d97d74"
 config_apk_version_name = "164"
 config_apk_version_code = "164"
 config_apk_is_debug = false
