@@ -1,0 +1,94 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jack Styles <jackrogers.org@gmail.com>
+Date: Sun, 15 Mar 2026 04:00:00 +0100
+Subject: [PATCH] Dumb Browser: plum toolbar and status bar theme
+
+Override the default toolbar, status bar, and navigation bar colors
+to use the Dumb Browser plum (#412234) branding. Since the toolbar
+is dark, use light foreground (white icons and text).
+---
+ .../browser_ui/styles/ChromeColors.java       |  8 ++--
+ .../chrome/browser/theme/ThemeUtils.java       |  4 +-
+ .../res_vanadium_base/values/colors.xml       | 11 +++++
+ chrome/android/BUILD.gn                       |  2 +
+ 4 files changed, 19 insertions(+), 6 deletions(-)
+ create mode 100644 chrome/android/java/res_vanadium_base/values/colors.xml
+
+diff --git a/components/browser_ui/styles/android/java/src/org/chromium/components/browser_ui/styles/ChromeColors.java b/components/browser_ui/styles/android/java/src/org/chromium/components/browser_ui/styles/ChromeColors.java
+--- a/components/browser_ui/styles/android/java/src/org/chromium/components/browser_ui/styles/ChromeColors.java
++++ b/components/browser_ui/styles/android/java/src/org/chromium/components/browser_ui/styles/ChromeColors.java
+@@ -23,6 +23,9 @@ public class ChromeColors {
+     private static final String TAG = "ChromeColors";
+
+     /**
++     * Dumb Browser plum brand color for toolbar background.
++     */
++    private static final int PLUM_COLOR = 0xFF412234;
++
++    /**
+      * Determines the default theme color used for toolbar based on the provided parameters.
+      *
+      * @param context {@link Context} used to retrieve colors.
+@@ -31,9 +34,7 @@ public class ChromeColors {
+      * @return The default theme color.
+      */
+     public static @ColorInt int getDefaultThemeColor(Context context, boolean isIncognito) {
+-        return isIncognito
+-                ? context.getColor(R.color.toolbar_background_incognito)
+-                : MaterialColors.getColor(context, R.attr.colorSurface, TAG);
++        return PLUM_COLOR;
+     }
+
+     /**
+diff --git a/chrome/browser/ui/android/theme/java/src/org/chromium/chrome/browser/theme/ThemeUtils.java b/chrome/browser/ui/android/theme/java/src/org/chromium/chrome/browser/theme/ThemeUtils.java
+--- a/chrome/browser/ui/android/theme/java/src/org/chromium/chrome/browser/theme/ThemeUtils.java
++++ b/chrome/browser/ui/android/theme/java/src/org/chromium/chrome/browser/theme/ThemeUtils.java
+@@ -222,8 +222,8 @@ public class ThemeUtils {
+     public static @BrandedColorScheme int getBrandedColorScheme(
+             Context context, @ColorInt int toolbarColor, boolean isIncognito) {
+         if (isIncognito) return BrandedColorScheme.INCOGNITO;
+-
+-        boolean isDefaultColor = isUsingDefaultToolbarColor(context, isIncognito, toolbarColor);
+-        if (isDefaultColor) return BrandedColorScheme.APP_DEFAULT;
+-
+-        boolean isDarkTheme = ColorUtils.shouldUseLightForegroundOnBackground(toolbarColor);
+-        return isDarkTheme
+-                ? BrandedColorScheme.DARK_BRANDED_THEME
+-                : BrandedColorScheme.LIGHT_BRANDED_THEME;
++        // Dumb Browser: plum is dark, always use light foreground icons/text.
++        return BrandedColorScheme.DARK_BRANDED_THEME;
+diff --git a/chrome/android/java/res_vanadium_base/values/colors.xml b/chrome/android/java/res_vanadium_base/values/colors.xml
+new file mode 100644
+index 0000000000000..000000000000a
+--- /dev/null
++++ b/chrome/android/java/res_vanadium_base/values/colors.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Dumb Browser plum branding colors -->
++<resources>
++    <!-- Toolbar text box background on plum toolbar -->
++    <color name="toolbar_text_box_bg_color">#33DABFFF</color>
++    <!-- Incognito toolbar also plum (consistent identity) -->
++    <color name="toolbar_background_incognito">#FF2D1824</color>
++    <!-- Status bar color -->
++    <color name="status_bar_bg_color">#FF412234</color>
++    <color name="snackbar_background_color">#FF4d2a3f</color>
++</resources>
+diff --git a/chrome/android/BUILD.gn b/chrome/android/BUILD.gn
+--- a/chrome/android/BUILD.gn
++++ b/chrome/android/BUILD.gn
+@@ -160,6 +160,7 @@
+       "java/res_vanadium_base/mipmap-xxxhdpi/layered_app_icon.png",
+       "java/res_vanadium_base/mipmap-xxxhdpi/layered_app_icon_background.png",
+       "java/res_vanadium_base/values/channel_constants.xml",
++      "java/res_vanadium_base/values/colors.xml",
+     ]
+   }
+
+@@ -1716,6 +1717,7 @@
+       "java/res_vanadium_base/mipmap-xxxhdpi/layered_app_icon.png",
+       "java/res_vanadium_base/mipmap-xxxhdpi/layered_app_icon_background.png",
+       "java/res_vanadium_base/values/channel_constants.xml",
++      "java/res_vanadium_base/values/colors.xml",
+     ]
+   }
