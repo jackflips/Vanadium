@@ -46,7 +46,7 @@ index 97c468723891d..3dc9d0438ec7d 100644
      Open links navigated by external apps in incognito tabs
    </message>
 +  <message name="IDS_VANADIUM_CONFIG_VERSION_TITLE" desc="Title of VanadiumConfig version menu item">
-+    Vanadium Config version
++    Dumb Browser Config version
 +  </message>
    <!-- WebRTC toggle -->
    <message name="IDS_WEBRTC_POLICY_TITLE" desc="WebRTC policy setting label">

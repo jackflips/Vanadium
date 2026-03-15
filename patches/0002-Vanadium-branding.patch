@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: quh4gko8 <88831734+quh4gko8@users.noreply.github.com>
 Date: Tue, 19 Oct 2021 02:21:18 +0000
-Subject: [PATCH] Vanadium branding
+Subject: [PATCH] Dumb Browser branding
 
 Current incantation of the recolor command:
 
@@ -1403,15 +1403,15 @@ index 0000000000000..1a502c787b541
 @@ -0,0 +1,14 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!--
-+Copyright 2015 The Vanadium Authors
++Copyright 2015 The Dumb Browser Authors
 +Use of this source code is governed by a BSD-style license that can be
 +found in the LICENSE file.
 +-->
 +
 +<resources xmlns:android="http://schemas.android.com/apk/res/android">
 +    <!-- The application name displayed to the user. -->
-+    <string name="app_name" translatable="false">Vanadium</string>
-+    <string name="bookmark_widget_title" translatable="false">Vanadium bookmarks</string>
-+    <string name="search_widget_title" translatable="false">Vanadium search</string>
-+    <string name="quick_action_search_widget_title" translatable="false">Vanadium quick action search</string>
++    <string name="app_name" translatable="false">Dumb Browser</string>
++    <string name="bookmark_widget_title" translatable="false">Dumb Browser bookmarks</string>
++    <string name="search_widget_title" translatable="false">Dumb Browser search</string>
++    <string name="quick_action_search_widget_title" translatable="false">Dumb Browser quick action search</string>
 +</resources>
